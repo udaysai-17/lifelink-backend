@@ -7,11 +7,18 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import com.lifelink.common.BaseEntity;
 import com.lifelink.enums.Role;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Document(collection = "users")
 public class User extends BaseEntity {
 
@@ -25,5 +32,6 @@ public class User extends BaseEntity {
 
 	private Role role;
 
+	@Default
 	private Boolean accountEnabled = true;
 }
