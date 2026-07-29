@@ -41,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
 		userRepository.save(user);
 
 		return AuthResponse.builder().userId(user.getId()).email(user.getEmail()).role(user.getRole())
-				.message("User registered successfully").build();
+				.profileCompleted(user.getProfileCompleted()).message("User registered successfully").build();
 	}
 
 	@Override
@@ -60,6 +60,6 @@ public class AuthServiceImpl implements AuthService {
 		String token = jwtService.generateToken(new CustomUserDetails(user));
 
 		return AuthResponse.builder().token(token).userId(user.getId()).email(user.getEmail()).role(user.getRole())
-				.message("Login successful").build();
+				.profileCompleted(user.getProfileCompleted()).message("Login successful").build();
 	}
 }

@@ -32,6 +32,8 @@ public class User extends BaseEntity {
 
 	private Role role;
 
-	@Default
+	@Builder.Default
 	private Boolean accountEnabled = true;
+	@Builder.Default
+	private Boolean profileCompleted = false;
 }
