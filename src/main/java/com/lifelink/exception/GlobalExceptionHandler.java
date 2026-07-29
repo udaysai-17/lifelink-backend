@@ -65,4 +65,13 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.badRequest().body(response);
 	}
+
+	@ExceptionHandler(ProfileAlreadyExistsException.class)
+	public ResponseEntity<ApiResponse<Object>> handleProfileAlreadyExistsException(ProfileAlreadyExistsException ex) {
+
+		ApiResponse<Object> response = ApiResponse.<Object>builder().success(false).message(ex.getMessage()).data(null)
+				.build();
+
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+	}
 }
