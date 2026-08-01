@@ -2,11 +2,11 @@ package com.lifelink.enums;
 
 public enum RequestStatus {
 
-    OPEN,
+	OPEN,
 
-    ACCEPTED,
+	IN_PROGRESS,
 
-    COMPLETED,
+	COMPLETED,
 
-    CANCELLED
+	CANCELLED
 }

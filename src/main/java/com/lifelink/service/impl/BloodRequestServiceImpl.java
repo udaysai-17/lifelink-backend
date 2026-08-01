@@ -1,7 +1,6 @@
 package com.lifelink.service.impl;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +14,7 @@ import com.lifelink.entity.RequesterProfile;
 import com.lifelink.entity.User;
 import com.lifelink.enums.RequestStatus;
 import com.lifelink.exception.ResourceNotFoundException;
+import com.lifelink.mapper.BloodRequestMapper;
 import com.lifelink.repository.BloodRequestRepository;
 import com.lifelink.repository.RequesterProfileRepository;
 import com.lifelink.repository.UserRepository;
@@ -26,166 +26,184 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BloodRequestServiceImpl implements BloodRequestService {
 
-	private final BloodRequestRepository bloodRequestRepository;
-	private final RequesterProfileRepository requesterProfileRepository;
-	private final UserRepository userRepository;
+    private final BloodRequestRepository bloodRequestRepository;
+    private final RequesterProfileRepository requesterProfileRepository;
+    private final UserRepository userRepository;
+    private final BloodRequestMapper bloodRequestMapper;
 
-	private User getLoggedInUser() {
+    private User getLoggedInUser() {
 
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
 
-		String email = authentication.getName();
+        String email = authentication.getName();
 
-		return userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User not found"));
-	}
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+    }
 
-	private BloodRequestResponse mapToResponse(BloodRequest request) {
+    private List<BloodRequestResponse> mapToResponseList(List<BloodRequest> requests) {
 
-		return BloodRequestResponse.builder().id(request.getId()).requesterName(request.getRequester().getFullName())
-				.patientName(request.getPatientName()).bloodGroup(request.getBloodGroup())
-				.unitsRequired(request.getUnitsRequired()).hospitalName(request.getHospitalName())
-				.hospitalAddress(request.getHospitalAddress()).city(request.getCity()).state(request.getState())
-				.pincode(request.getPincode()).requiredDate(request.getRequiredDate())
-				.contactNumber(request.getContactNumber()).notes(request.getNotes()).emergency(request.getEmergency())
-				.status(request.getStatus()).build();
-	}
+        return requests.stream()
+                .map(bloodRequestMapper::toResponse)
+                .toList();
+    }
 
-	private List<BloodRequestResponse> mapToResponseList(List<BloodRequest> requests) {
+    @Override
+    public BloodRequestResponse createRequest(CreateBloodRequestRequest request) {
 
-		return requests.stream().map(this::mapToResponse).collect(Collectors.toList());
-	}
+        User user = getLoggedInUser();
 
-	@Override
-	public BloodRequestResponse createRequest(CreateBloodRequestRequest request) {
+        RequesterProfile requester = requesterProfileRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Requester profile not found"));
 
-		User user = getLoggedInUser();
+        BloodRequest bloodRequest = BloodRequest.builder()
+                .requester(requester)
+                .patientName(request.getPatientName())
+                .bloodGroup(request.getBloodGroup())
+                .unitsRequired(request.getUnitsRequired())
+                .hospitalName(request.getHospitalName())
+                .hospitalAddress(request.getHospitalAddress())
+                .city(request.getCity())
+                .state(request.getState())
+                .pincode(request.getPincode())
+                .requiredDate(request.getRequiredDate())
+                .contactNumber(request.getContactNumber())
+                .notes(request.getNotes())
+                .emergency(request.getEmergency() != null
+                        ? request.getEmergency()
+                        : false)
+                .status(RequestStatus.OPEN)
+                .build();
 
-		RequesterProfile requester = requesterProfileRepository.findByUser(user)
-				.orElseThrow(() -> new ResourceNotFoundException("Requester profile not found"));
+        bloodRequest = bloodRequestRepository.save(bloodRequest);
 
-		BloodRequest bloodRequest = BloodRequest.builder().requester(requester).patientName(request.getPatientName())
-				.bloodGroup(request.getBloodGroup()).unitsRequired(request.getUnitsRequired())
-				.hospitalName(request.getHospitalName()).hospitalAddress(request.getHospitalAddress())
-				.city(request.getCity()).state(request.getState()).pincode(request.getPincode())
-				.requiredDate(request.getRequiredDate()).contactNumber(request.getContactNumber())
-				.notes(request.getNotes()).emergency(request.getEmergency() != null ? request.getEmergency() : false)
-				.status(RequestStatus.OPEN).build();
+        return bloodRequestMapper.toResponse(bloodRequest);
+    }
 
-		bloodRequest = bloodRequestRepository.save(bloodRequest);
+    @Override
+    public List<BloodRequestResponse> getMyRequests() {
 
-		return mapToResponse(bloodRequest);
-	}
+        User user = getLoggedInUser();
 
-	@Override
-	public List<BloodRequestResponse> getMyRequests() {
+        RequesterProfile requester = requesterProfileRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Requester profile not found"));
 
-		User user = getLoggedInUser();
+        List<BloodRequest> requests =
+                bloodRequestRepository.findByRequester(requester);
 
-		RequesterProfile requester = requesterProfileRepository.findByUser(user)
-				.orElseThrow(() -> new ResourceNotFoundException("Requester profile not found"));
+        return mapToResponseList(requests);
+    }
 
-		List<BloodRequest> requests = bloodRequestRepository.findByRequester(requester);
+    @Override
+    public BloodRequestResponse getRequestById(String id) {
 
-		return mapToResponseList(requests);
-	}
+        BloodRequest bloodRequest = bloodRequestRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Blood request not found"));
 
-	@Override
-	public BloodRequestResponse getRequestById(String id) {
+        return bloodRequestMapper.toResponse(bloodRequest);
+    }
 
-		BloodRequest bloodRequest = bloodRequestRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Blood request not found"));
+    @Override
+    public BloodRequestResponse updateRequest(
+            String id,
+            UpdateBloodRequestRequest request) {
 
-		return mapToResponse(bloodRequest);
-	}
+        User user = getLoggedInUser();
 
-	@Override
-	public BloodRequestResponse updateRequest(String id, UpdateBloodRequestRequest request) {
+        RequesterProfile requester = requesterProfileRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Requester profile not found"));
 
-		User user = getLoggedInUser();
+        BloodRequest bloodRequest = bloodRequestRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Blood request not found"));
 
-		RequesterProfile requester = requesterProfileRepository.findByUser(user)
-				.orElseThrow(() -> new ResourceNotFoundException("Requester profile not found"));
+        if (!bloodRequest.getRequester().getId().equals(requester.getId())) {
+            throw new IllegalStateException(
+                    "You are not allowed to update this request");
+        }
 
-		BloodRequest bloodRequest = bloodRequestRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Blood request not found"));
+        if (bloodRequest.getStatus() == RequestStatus.COMPLETED
+                || bloodRequest.getStatus() == RequestStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Request cannot be updated");
+        }
 
-		// Only the owner can update
-		if (!bloodRequest.getRequester().getId().equals(requester.getId())) {
-			throw new IllegalStateException("You are not allowed to update this request");
-		}
+        if (request.getPatientName() != null)
+            bloodRequest.setPatientName(request.getPatientName());
 
-		// Cannot update completed/cancelled requests
-		if (bloodRequest.getStatus() == RequestStatus.COMPLETED
-				|| bloodRequest.getStatus() == RequestStatus.CANCELLED) {
-			throw new IllegalStateException("Request cannot be updated");
-		}
+        if (request.getBloodGroup() != null)
+            bloodRequest.setBloodGroup(request.getBloodGroup());
 
-		if (request.getPatientName() != null)
-			bloodRequest.setPatientName(request.getPatientName());
+        if (request.getUnitsRequired() != null)
+            bloodRequest.setUnitsRequired(request.getUnitsRequired());
 
-		if (request.getBloodGroup() != null)
-			bloodRequest.setBloodGroup(request.getBloodGroup());
+        if (request.getHospitalName() != null)
+            bloodRequest.setHospitalName(request.getHospitalName());
 
-		if (request.getUnitsRequired() != null)
-			bloodRequest.setUnitsRequired(request.getUnitsRequired());
+        if (request.getHospitalAddress() != null)
+            bloodRequest.setHospitalAddress(request.getHospitalAddress());
 
-		if (request.getHospitalName() != null)
-			bloodRequest.setHospitalName(request.getHospitalName());
+        if (request.getCity() != null)
+            bloodRequest.setCity(request.getCity());
 
-		if (request.getHospitalAddress() != null)
-			bloodRequest.setHospitalAddress(request.getHospitalAddress());
+        if (request.getState() != null)
+            bloodRequest.setState(request.getState());
 
-		if (request.getCity() != null)
-			bloodRequest.setCity(request.getCity());
+        if (request.getPincode() != null)
+            bloodRequest.setPincode(request.getPincode());
 
-		if (request.getState() != null)
-			bloodRequest.setState(request.getState());
+        if (request.getRequiredDate() != null)
+            bloodRequest.setRequiredDate(request.getRequiredDate());
 
-		if (request.getPincode() != null)
-			bloodRequest.setPincode(request.getPincode());
+        if (request.getContactNumber() != null)
+            bloodRequest.setContactNumber(request.getContactNumber());
 
-		if (request.getRequiredDate() != null)
-			bloodRequest.setRequiredDate(request.getRequiredDate());
+        if (request.getNotes() != null)
+            bloodRequest.setNotes(request.getNotes());
 
-		if (request.getContactNumber() != null)
-			bloodRequest.setContactNumber(request.getContactNumber());
+        if (request.getEmergency() != null)
+            bloodRequest.setEmergency(request.getEmergency());
 
-		if (request.getNotes() != null)
-			bloodRequest.setNotes(request.getNotes());
+        bloodRequest = bloodRequestRepository.save(bloodRequest);
 
-		if (request.getEmergency() != null)
-			bloodRequest.setEmergency(request.getEmergency());
+        return bloodRequestMapper.toResponse(bloodRequest);
+    }
 
-		bloodRequest = bloodRequestRepository.save(bloodRequest);
+    @Override
+    public void cancelRequest(String id) {
 
-		return mapToResponse(bloodRequest);
-	}
+        User user = getLoggedInUser();
 
-	@Override
-	public void cancelRequest(String id) {
+        RequesterProfile requester = requesterProfileRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Requester profile not found"));
 
-		User user = getLoggedInUser();
+        BloodRequest bloodRequest = bloodRequestRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Blood request not found"));
 
-		RequesterProfile requester = requesterProfileRepository.findByUser(user)
-				.orElseThrow(() -> new ResourceNotFoundException("Requester profile not found"));
+        if (!bloodRequest.getRequester().getId().equals(requester.getId())) {
+            throw new IllegalStateException(
+                    "You are not allowed to cancel this request");
+        }
 
-		BloodRequest bloodRequest = bloodRequestRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Blood request not found"));
+        bloodRequest.setStatus(RequestStatus.CANCELLED);
 
-		if (!bloodRequest.getRequester().getId().equals(requester.getId())) {
-			throw new IllegalStateException("You are not allowed to cancel this request");
-		}
+        bloodRequestRepository.save(bloodRequest);
+    }
 
-		bloodRequest.setStatus(RequestStatus.CANCELLED);
+    @Override
+    public List<BloodRequestResponse> getOpenRequests() {
 
-		bloodRequestRepository.save(bloodRequest);
-	}
+        List<BloodRequest> requests =
+                bloodRequestRepository.findByStatus(RequestStatus.OPEN);
 
-	@Override
-	public List<BloodRequestResponse> getOpenRequests() {
-
-		List<BloodRequest> requests = bloodRequestRepository.findByStatus(RequestStatus.OPEN);
-
-		return mapToResponseList(requests);
-	}
+        return mapToResponseList(requests);
+    }
 }
